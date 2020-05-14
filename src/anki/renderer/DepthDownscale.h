@@ -34,10 +34,16 @@ public:
 	/// Populate the rendergraph.
 	void populateRenderGraph(RenderingContext& ctx);
 
-	/// Return a FP color render target with hierarchical Z (min Z) in it's mips.
-	RenderTargetHandle getHiZRt() const
+	/// Return a FP color render target with hierarchical Z (max Z) in it's mips.
+	RenderTargetHandle getMaxHiZRt() const
 	{
-		return m_runCtx.m_hizRt;
+		return m_runCtx.m_maxRt;
+	}
+
+	/// Return a FP color render target with hierarchical Z (min Z) in it's mips.
+	RenderTargetHandle getMinHiZRt() const
+	{
+		return m_runCtx.m_minRt;
 	}
 
 	U32 getMipmapCount() const
@@ -56,7 +62,8 @@ public:
 private:
 	static const U32 MIPS_WRITTEN_PER_PASS = 2;
 
-	TexturePtr m_hizTex;
+	TexturePtr m_maxHizTex;
+	TexturePtr m_minHizTex;
 	Bool m_hizTexImportedOnce = false;
 	ShaderProgramResourcePtr m_prog;
 	ShaderProgramPtr m_grProg;
@@ -65,7 +72,8 @@ private:
 	class
 	{
 	public:
-		RenderTargetHandle m_hizRt;
+		RenderTargetHandle m_maxRt;
+		RenderTargetHandle m_minRt;
 		U32 m_mip;
 	} m_runCtx; ///< Run context.
 

@@ -30,7 +30,7 @@ Error DepthDownscale::initInternal(const ConfigSet&)
 
 	ANKI_R_LOGI("Initializing HiZ. Mip count %u, last mip size %ux%u", m_mipCount, lastMipWidth, lastMipHeight);
 
-	// Create RT descr
+	// Create textures
 	TextureInitInfo texInit = m_r->create2DRenderTargetInitInfo(width,
 		height,
 		Format::R32_SFLOAT,
@@ -38,16 +38,14 @@ Error DepthDownscale::initInternal(const ConfigSet&)
 		"HiZ");
 	texInit.m_mipmapCount = U8(m_mipCount);
 	texInit.m_initialUsage = TextureUsageBit::SAMPLED_FRAGMENT;
-	m_hizTex = m_r->createAndClearRenderTarget(texInit);
+	m_maxHizTex = m_r->createAndClearRenderTarget(texInit);
+	m_minHizTex = m_r->createAndClearRenderTarget(texInit);
 
 	// Progs
 	ANKI_CHECK(getResourceManager().loadResource("shaders/DepthDownscale.ankiprog", m_prog));
 
-	ShaderProgramResourceVariantInitInfo variantInitInfo(m_prog);
-	variantInitInfo.addMutation("SAMPLE_RESOLVE_TYPE", 2);
-
 	const ShaderProgramResourceVariant* variant;
-	m_prog->getOrCreateVariant(variantInitInfo, variant);
+	m_prog->getOrCreateVariant(variant);
 	m_grProg = variant->getProgram();
 
 	// Copy to buffer
@@ -92,13 +90,15 @@ void DepthDownscale::importRenderTargets(RenderingContext& ctx)
 	RenderGraphDescription& rgraph = ctx.m_renderGraphDescr;
 
 	// Import RT
-	if(m_hizTexImportedOnce)
+	if(ANKI_LIKELY(m_hizTexImportedOnce))
 	{
-		m_runCtx.m_hizRt = rgraph.importRenderTarget(m_hizTex);
+		m_runCtx.m_maxRt = rgraph.importRenderTarget(m_maxHizTex);
+		m_runCtx.m_minRt = rgraph.importRenderTarget(m_minHizTex);
 	}
 	else
 	{
-		m_runCtx.m_hizRt = rgraph.importRenderTarget(m_hizTex, TextureUsageBit::SAMPLED_FRAGMENT);
+		m_runCtx.m_maxRt = rgraph.importRenderTarget(m_maxHizTex, TextureUsageBit::SAMPLED_FRAGMENT);
+		m_runCtx.m_minRt = rgraph.importRenderTarget(m_minHizTex, TextureUsageBit::SAMPLED_FRAGMENT);
 		m_hizTexImportedOnce = true;
 	}
 }
@@ -128,17 +128,20 @@ void DepthDownscale::populateRenderGraph(RenderingContext& ctx)
 			TextureSubresourceInfo subresource;
 			subresource.m_firstMipmap = i - 1;
 
-			pass.newDependency({m_runCtx.m_hizRt, TextureUsageBit::SAMPLED_COMPUTE, subresource});
+			pass.newDependency({m_runCtx.m_minRt, TextureUsageBit::SAMPLED_COMPUTE, subresource});
+			pass.newDependency({m_runCtx.m_maxRt, TextureUsageBit::SAMPLED_COMPUTE, subresource});
 		}
 
 		TextureSubresourceInfo subresource;
 		subresource.m_firstMipmap = i;
-		pass.newDependency({m_runCtx.m_hizRt, TextureUsageBit::IMAGE_COMPUTE_WRITE, subresource});
+		pass.newDependency({m_runCtx.m_minRt, TextureUsageBit::IMAGE_COMPUTE_WRITE, subresource});
+		pass.newDependency({m_runCtx.m_maxRt, TextureUsageBit::IMAGE_COMPUTE_WRITE, subresource});
 
 		if(mipsToFill == MIPS_WRITTEN_PER_PASS)
 		{
 			subresource.m_firstMipmap = i + 1;
-			pass.newDependency({m_runCtx.m_hizRt, TextureUsageBit::IMAGE_COMPUTE_WRITE, subresource});
+			pass.newDependency({m_runCtx.m_minRt, TextureUsageBit::IMAGE_COMPUTE_WRITE, subresource});
+			pass.newDependency({m_runCtx.m_maxRt, TextureUsageBit::IMAGE_COMPUTE_WRITE, subresource});
 		}
 
 		auto callback = [](RenderPassWorkContext& rgraphCtx) {
@@ -189,25 +192,30 @@ void DepthDownscale::run(RenderPassWorkContext& rgraphCtx)
 	{
 		rgraphCtx.bindTexture(
 			0, 1, m_r->getGBuffer().getDepthRt(), TextureSubresourceInfo(DepthStencilAspectBit::DEPTH));
+		rgraphCtx.bindTexture(
+			0, 2, m_r->getGBuffer().getDepthRt(), TextureSubresourceInfo(DepthStencilAspectBit::DEPTH));
 	}
 	else
 	{
 		TextureSubresourceInfo subresource;
 		subresource.m_firstMipmap = level - 1;
-		rgraphCtx.bindTexture(0, 1, m_runCtx.m_hizRt, subresource);
+		rgraphCtx.bindTexture(0, 1, m_runCtx.m_minRt, subresource);
+		rgraphCtx.bindTexture(0, 2, m_runCtx.m_maxRt, subresource);
 	}
 
 	// 1st level
 	TextureSubresourceInfo subresource;
 	subresource.m_firstMipmap = level;
-	rgraphCtx.bindImage(0, 2, m_runCtx.m_hizRt, subresource);
+	rgraphCtx.bindImage(0, 3, m_runCtx.m_minRt, subresource);
+	rgraphCtx.bindImage(0, 4, m_runCtx.m_maxRt, subresource);
 
 	// 2nd level
 	subresource.m_firstMipmap = (mipsToFill == MIPS_WRITTEN_PER_PASS) ? level + 1 : level; // Bind the next or the same
-	rgraphCtx.bindImage(0, 3, m_runCtx.m_hizRt, subresource);
+	rgraphCtx.bindImage(0, 5, m_runCtx.m_minRt, subresource);
+	rgraphCtx.bindImage(0, 6, m_runCtx.m_maxRt, subresource);
 
 	// Client buffer
-	cmdb->bindStorageBuffer(0, 4, m_copyToBuff.m_buff, 0, m_copyToBuff.m_buff->getSize());
+	cmdb->bindStorageBuffer(0, 7, m_copyToBuff.m_buff, 0, m_copyToBuff.m_buff->getSize());
 
 	// Done
 	dispatchPPCompute(cmdb, 8, 8, level0Width, level0Height);

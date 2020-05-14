@@ -21,6 +21,7 @@ ANKI_SPECIALIZATION_CONSTANT_F32(HISTORY_COLOR_BLEND_FACTOR, 4, 0.5);
 #include <shaders/Pack.glsl>
 #include <shaders/glsl_cpp_common/Ssr.h>
 #include <shaders/Tonemapping.glsl>
+#include <shaders/SsRaymarching.glsl>
 
 const UVec2 WORKGROUP_SIZE = UVec2(16, 16);
 layout(local_size_x = WORKGROUP_SIZE.x, local_size_y = WORKGROUP_SIZE.y, local_size_z = 1) in;

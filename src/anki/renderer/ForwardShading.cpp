@@ -43,7 +43,7 @@ void ForwardShading::run(const RenderingContext& ctx, RenderPassWorkContext& rgr
 		const ClusterBinOut& rsrc = ctx.m_clusterBinOut;
 		cmdb->bindSampler(0, 0, m_r->getSamplers().m_trilinearClamp);
 
-		rgraphCtx.bindTexture(0, 1, m_r->getDepthDownscale().getHiZRt(), HIZ_HALF_DEPTH);
+		rgraphCtx.bindTexture(0, 1, m_r->getDepthDownscale().getMaxHiZRt(), HIZ_HALF_DEPTH);
 		rgraphCtx.bindColorTexture(0, 2, m_r->getVolumetricLightingAccumulation().getRt());
 
 		bindUniforms(cmdb, 0, 3, ctx.m_lightShadingUniformsToken);
@@ -76,8 +76,8 @@ void ForwardShading::run(const RenderingContext& ctx, RenderPassWorkContext& rgr
 
 void ForwardShading::setDependencies(const RenderingContext& ctx, GraphicsRenderPassDescription& pass)
 {
-	pass.newDependency({m_r->getDepthDownscale().getHiZRt(), TextureUsageBit::SAMPLED_FRAGMENT, HIZ_HALF_DEPTH});
-	pass.newDependency({m_r->getDepthDownscale().getHiZRt(), TextureUsageBit::SAMPLED_FRAGMENT, HIZ_QUARTER_DEPTH});
+	pass.newDependency({m_r->getDepthDownscale().getMaxHiZRt(), TextureUsageBit::SAMPLED_FRAGMENT, HIZ_HALF_DEPTH});
+	pass.newDependency({m_r->getDepthDownscale().getMaxHiZRt(), TextureUsageBit::SAMPLED_FRAGMENT, HIZ_QUARTER_DEPTH});
 	pass.newDependency({m_r->getVolumetricLightingAccumulation().getRt(), TextureUsageBit::SAMPLED_FRAGMENT});
 
 	if(ctx.m_renderQueue->m_lensFlares.getSize())

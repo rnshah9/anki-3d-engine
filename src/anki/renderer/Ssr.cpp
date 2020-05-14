@@ -85,7 +85,7 @@ void Ssr::populateRenderGraph(RenderingContext& ctx)
 	rpass.newDependency({m_r->getGBuffer().getColorRt(2), TextureUsageBit::SAMPLED_COMPUTE});
 
 	TextureSubresourceInfo hizSubresource; // Only first mip
-	rpass.newDependency({m_r->getDepthDownscale().getHiZRt(), TextureUsageBit::SAMPLED_COMPUTE, hizSubresource});
+	rpass.newDependency({m_r->getDepthDownscale().getMaxHiZRt(), TextureUsageBit::SAMPLED_COMPUTE, hizSubresource});
 
 	rpass.newDependency({m_r->getDownscaleBlur().getRt(), TextureUsageBit::SAMPLED_COMPUTE});
 }
@@ -103,7 +103,7 @@ void Ssr::run(RenderPassWorkContext& rgraphCtx)
 	rgraphCtx.bindColorTexture(0, 2, m_r->getGBuffer().getColorRt(2));
 
 	TextureSubresourceInfo hizSubresource; // Only first mip
-	rgraphCtx.bindTexture(0, 3, m_r->getDepthDownscale().getHiZRt(), hizSubresource);
+	rgraphCtx.bindTexture(0, 3, m_r->getDepthDownscale().getMaxHiZRt(), hizSubresource);
 
 	rgraphCtx.bindColorTexture(0, 4, m_r->getDownscaleBlur().getRt());
 

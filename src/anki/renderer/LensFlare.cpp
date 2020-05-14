@@ -104,7 +104,7 @@ void LensFlare::updateIndirectInfo(const RenderingContext& ctx, RenderPassWorkCo
 	rgraphCtx.bindStorageBuffer(0, 1, m_runCtx.m_indirectBuffHandle);
 	// Bind neareset because you don't need high quality
 	cmdb->bindSampler(0, 2, m_r->getSamplers().m_nearestNearestClamp);
-	rgraphCtx.bindTexture(0, 3, m_r->getDepthDownscale().getHiZRt(), HIZ_QUARTER_DEPTH);
+	rgraphCtx.bindTexture(0, 3, m_r->getDepthDownscale().getMaxHiZRt(), HIZ_QUARTER_DEPTH);
 	cmdb->dispatchCompute(count, 1, 1);
 }
 
@@ -134,7 +134,8 @@ void LensFlare::populateRenderGraph(RenderingContext& ctx)
 			0);
 
 		rpass.newDependency({m_runCtx.m_indirectBuffHandle, BufferUsageBit::STORAGE_COMPUTE_WRITE});
-		rpass.newDependency({m_r->getDepthDownscale().getHiZRt(), TextureUsageBit::SAMPLED_COMPUTE, HIZ_QUARTER_DEPTH});
+		rpass.newDependency(
+			{m_r->getDepthDownscale().getMaxHiZRt(), TextureUsageBit::SAMPLED_COMPUTE, HIZ_QUARTER_DEPTH});
 	}
 }
 

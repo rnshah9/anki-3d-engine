@@ -34,7 +34,7 @@ void GenericCompute::populateRenderGraph(RenderingContext& ctx)
 		this,
 		0);
 
-	pass.newDependency({m_r->getDepthDownscale().getHiZRt(), TextureUsageBit::SAMPLED_COMPUTE});
+	pass.newDependency({m_r->getDepthDownscale().getMaxHiZRt(), TextureUsageBit::SAMPLED_COMPUTE});
 }
 
 void GenericCompute::run(RenderPassWorkContext& rgraphCtx)
@@ -51,7 +51,7 @@ void GenericCompute::run(RenderPassWorkContext& rgraphCtx)
 	elementCtx.m_cameraTransform = m_runCtx.m_ctx->m_matrices.m_cameraTransform;
 
 	// Bind some state
-	rgraphCtx.bindTexture(0, 0, m_r->getDepthDownscale().getHiZRt(), TextureSubresourceInfo());
+	rgraphCtx.bindTexture(0, 0, m_r->getDepthDownscale().getMaxHiZRt(), TextureSubresourceInfo());
 
 	for(const GenericGpuComputeJobQueueElement& element : m_runCtx.m_ctx->m_renderQueue->m_genericGpuComputeJobs)
 	{

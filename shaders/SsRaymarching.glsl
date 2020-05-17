@@ -57,7 +57,6 @@ void stepToNextCell(Vec3 rayOrigin, Vec3 rayDir, U32 mipLevel, UVec2 hizSize, ou
 void raymarch(Vec3 rayOrigin, // Ray origin in view space
 	Vec3 rayDir, // Ray dir in view space
 	F32 tmin, // Shoot rays from
-	F32 tmax, // Shoot rays up to
 	Vec2 uv, // UV the ray starts
 	F32 depthRef, // Depth the ray starts
 	Mat4 projMat, // Projection matrix
@@ -67,7 +66,7 @@ void raymarch(Vec3 rayOrigin, // Ray origin in view space
 	sampler hizSampler,
 	U32 hizMipCount,
 	UVec2 hizMip0Size,
-	out Vec2 hitUv,
+	out Vec3 hitPoint,
 	out F32 attenuation)
 {
 	attenuation = 0.0;
@@ -80,24 +79,25 @@ void raymarch(Vec3 rayOrigin, // Ray origin in view space
 		return;
 	}
 
-	// p0 & p1
-	const Vec3 p0 = rayOrigin + rayDir * tmin;
+	// Dither and set starting pos
+	const F32 bayerMat[4] = F32[](1.0, 4.0, 2.0, 3.0);
+	const Vec3 p0 = rayOrigin + rayDir * (tmin * bayerMat[randFrom0To3]);
+
+	// p1
+	const F32 tmax = 10.0;
 	const Vec3 p1 = rayOrigin + rayDir * tmax;
 
 	// Compute start & end in clip space (well not clip space since x,y are in [0, 1])
-	const Vec3 start = Vec3(uv, depthRef);
-	const Vec4 v4 = projMat * Vec4(p1, 1.0);
+	Vec4 v4 = projMat * Vec4(p0, 1.0);
+	Vec3 start = v4.xyz / v4.w;
+	start.xy = NDC_TO_UV(start.xy);
+	v4 = projMat * Vec4(p1, 1.0);
 	Vec3 end = v4.xyz / v4.w;
 	end.xy = NDC_TO_UV(end.xy);
 
 	// Ray
 	Vec3 origin = start;
 	const Vec3 dir = normalize(end - start);
-
-	// Dither the start position
-	const U32 bayerMat[4] = U32[](1, 4, 2, 3);
-	const U32 INITIAL_STEP = 16u;
-	U32 step = bayerMat[randFrom0To3] * (INITIAL_STEP / 4u);
 
 	// Start looping
 	I32 mipLevel = 0;
@@ -108,30 +108,21 @@ void raymarch(Vec3 rayOrigin, // Ray origin in view space
 		stepToNextCell(origin, dir, U32(mipLevel), hizMip0Size, newOrigin);
 		origin = newOrigin;
 
-		// Margin attenuation around the screen
-		const F32 blackMargin = 0.05 / 4.0;
-		const F32 whiteMargin = 0.1 / 2.0;
-		const Vec2 marginAttenuation2d = smoothstep(blackMargin, whiteMargin, origin.xy)
-										 * (1.0 - smoothstep(1.0 - whiteMargin, 1.0 - blackMargin, origin.xy));
-		const F32 marginAttenuation = marginAttenuation2d.x * marginAttenuation2d.y;
-
-		if(marginAttenuation > 0.0)
+		if(all(greaterThan(origin.xy, Vec2(0.0))) && all(lessThan(origin.xy, Vec2(1.0))))
 		{
 			const F32 newDepth = textureLod(hizTex, hizSampler, origin.xy, F32(mipLevel)).r;
 
-			if(origin.z < depthRef)
+			if(origin.z < newDepth)
 			{
-				// In front of depthRef
-				++mipLevel;
+				// In front of depth
+				mipLevel = min(mipLevel + 1, I32(hizMipCount - 1u));
 			}
 			else
 			{
-				// Behind depthRef
+				// Behind depth
 				const F32 t = (origin.z - newDepth) / dir.z;
 				origin -= dir * t;
 				--mipLevel;
-
-				attenuation = marginAttenuation * cameraContribution;
 			}
 
 			--maxIterations;
@@ -139,11 +130,107 @@ void raymarch(Vec3 rayOrigin, // Ray origin in view space
 		else
 		{
 			// Out of the screen
-			attenuation = 0.0;
 			break;
 		}
 	}
 
-	// Write the value
-	hitUv = origin.xy;
+	// Write the values
+	const F32 blackMargin = 0.05 / 4.0;
+	const F32 whiteMargin = 0.1 / 2.0;
+	const Vec2 marginAttenuation2d = smoothstep(blackMargin, whiteMargin, origin.xy)
+										* (1.0 - smoothstep(1.0 - whiteMargin, 1.0 - blackMargin, origin.xy));
+	const F32 marginAttenuation = marginAttenuation2d.x * marginAttenuation2d.y;
+	attenuation = marginAttenuation * cameraContribution;
+
+	hitPoint = origin;
+}
+
+// Note: All calculations in view space
+void raymarchGroundTruth(Vec3 rayOrigin, // Ray origin in view space
+	Vec3 rayDir, // Ray dir in view space
+	Vec2 uv, // UV the ray starts
+	F32 depthRef, // Depth the ray starts
+	Mat4 projMat, // Projection matrix
+	U32 randFrom0To3,
+	U32 maxIterations,
+	texture2D depthTex,
+	sampler depthSampler,
+	F32 depthLod,
+	UVec2 depthTexSize,
+	U32 bigStep,
+	out Vec3 hitPoint,
+	out F32 attenuation)
+{
+	attenuation = 0.0;
+
+	// Check for view facing reflections [sakibsaikia]
+	const Vec3 viewDir = normalize(rayOrigin);
+	const F32 cameraContribution = 1.0 - smoothstep(0.25, 0.5, dot(-viewDir, rayDir));
+	if(cameraContribution <= 0.0)
+	{
+		return;
+	}
+
+	// Start point
+	const Vec3 p0 = rayOrigin;
+	const Vec3 start = Vec3(uv, depthRef);
+
+	// Project end point
+	const Vec3 p1 = rayOrigin + rayDir * 10.0;
+	const Vec4 end4 = projMat * Vec4(p1, 1.0);
+	Vec3 end = end4.xyz / end4.w;
+	end.xy = NDC_TO_UV(end.xy);
+
+	// Compute the ray and step size
+	Vec3 dir = end - start;
+	const Vec2 texelSize = abs(dir.xy) * Vec2(depthTexSize);
+	const F32 stepSize = length(dir.xy) / max(texelSize.x, texelSize.y);
+	dir = normalize(dir);
+
+	// Compute step
+	U32 stepSkip = bigStep;
+
+	const U32 stapFraction = bigStep / (4u + 1u);
+	const U32 steps[4] = U32[](stapFraction, 4 * stapFraction, 2 * stapFraction, 3 * stapFraction);
+	U32 step = steps[randFrom0To3];
+
+	// Iterate
+	Vec3 origin;
+	ANKI_LOOP while(maxIterations-- != 0)
+	{
+		origin = start + dir * (F32(step) * stepSize);
+
+		// Check if it's out of the view
+		if(origin.x <= 0.0 || origin.y <= 0.0 || origin.x >= 1.0 || origin.y >= 1.0)
+		{
+			break;
+		}
+
+		const F32 depth = textureLod(depthTex, depthSampler, origin.xy, depthLod).r;
+		const Bool hit = origin.z - depth >= 0.0;
+		if(!hit)
+		{
+			step += stepSkip;
+		}
+		else if(stepSkip > 1)
+		{
+			step -= bigStep - 1u;
+			stepSkip = 1u;
+		}
+		else
+		{
+			// Found it
+			break;
+		}
+	}
+
+	// Write the values
+	const F32 blackMargin = 0.05 / 4.0;
+	const F32 whiteMargin = 0.1 / 2.0;
+	const Vec2 marginAttenuation2d = smoothstep(blackMargin, whiteMargin, origin.xy)
+										* (1.0 - smoothstep(1.0 - whiteMargin, 1.0 - blackMargin, origin.xy));
+	const F32 marginAttenuation = marginAttenuation2d.x * marginAttenuation2d.y;
+	attenuation = marginAttenuation * cameraContribution;
+
+	hitPoint = origin;
 }

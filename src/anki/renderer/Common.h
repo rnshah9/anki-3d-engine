@@ -75,7 +75,7 @@ constexpr U32 BLOOM_FRACTION = 4;
 constexpr U32 VOLUMETRIC_FRACTION = 4;
 
 /// SSR size is rendererSize/SSR_FRACTION.
-constexpr U32 SSR_FRACTION = 2;
+constexpr U32 SSR_FRACTION = 1;
 
 /// Used to calculate the mipmap count of the HiZ map.
 constexpr U32 HIERARCHICAL_Z_MIN_HEIGHT = 80;

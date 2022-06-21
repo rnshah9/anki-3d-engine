@@ -1,5 +1,5 @@
 project: anki-3d-engine
-target: anki-3d-engine
+target: ImageImporter
 
 cmds:
   - cmd: /repo/build/Bin/ImageImporter @@ /dev/null

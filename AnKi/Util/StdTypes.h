@@ -74,6 +74,7 @@ static_assert(sizeof(bool) == 1, "Wrong size for bool");
 
 using Bool32 = I32;
 using Char = char;
+using WChar = wchar_t;
 
 using Second = F64; ///< The base time unit is second.
 constexpr Second MAX_SECOND = MAX_F64;
@@ -115,7 +116,7 @@ ANKI_DO_LIMIT(F64, MIN_F64, MAX_F64)
 #undef ANKI_DO_LIMIT
 
 /// Representation of error and a wrapper on top of error codes.
-class Error
+class [[nodiscard]] Error
 {
 public:
 	/// @name Error codes
@@ -208,8 +209,7 @@ private:
 #define ANKI_CHECK_AND_IGNORE(x_) \
 	do \
 	{ \
-		const Error retError = x_; \
-		(void)retError; \
+		[[maybe_unused]] const Error retError = x_; \
 	} while(0)
 
 #if ANKI_EXTRA_CHECKS
@@ -266,6 +266,11 @@ static constexpr unsigned long long int operator""_GB(unsigned long long int x)
 
 /// @name Time user literals
 /// @{
+static constexpr Second operator""_hour(long double x)
+{
+	return Second(x) * 60.0;
+}
+
 static constexpr Second operator""_sec(long double x)
 {
 	return Second(x);

@@ -127,6 +127,15 @@ public:
 	void getRenderTargetState(RenderTargetHandle handle, const TextureSubresourceInfo& subresource,
 							  TexturePtr& tex) const;
 
+	/// Create a whole texture view from a handle
+	TextureViewPtr createTextureView(RenderTargetHandle handle)
+	{
+		TexturePtr tex = getTexture(handle);
+		TextureViewInitInfo viewInit(tex, "TmpRenderGraph"); // Use the whole texture
+		getRenderTargetState(handle, viewInit, tex);
+		return m_commandBuffer->getManager().newTextureView(viewInit);
+	}
+
 	/// Convenience method.
 	void bindTextureAndSampler(U32 set, U32 binding, RenderTargetHandle handle,
 							   const TextureSubresourceInfo& subresource, const SamplerPtr& sampler)
@@ -705,7 +714,7 @@ private:
 
 	~RenderGraph();
 
-	static ANKI_USE_RESULT RenderGraph* newInstance(GrManager* manager);
+	[[nodiscard]] static RenderGraph* newInstance(GrManager* manager);
 
 	BakeContext* newContext(const RenderGraphDescription& descr, StackAllocator<U8>& alloc);
 	void initRenderPassesAndSetDeps(const RenderGraphDescription& descr, StackAllocator<U8>& alloc);
@@ -736,8 +745,7 @@ private:
 
 	/// @name Dump the dependency graph into a file.
 	/// @{
-	ANKI_USE_RESULT Error dumpDependencyDotFile(const RenderGraphDescription& descr, const BakeContext& ctx,
-												CString path) const;
+	Error dumpDependencyDotFile(const RenderGraphDescription& descr, const BakeContext& ctx, CString path) const;
 	static StringAuto textureUsageToStr(StackAllocator<U8>& alloc, TextureUsageBit usage);
 	static StringAuto bufferUsageToStr(StackAllocator<U8>& alloc, BufferUsageBit usage);
 	static StringAuto asUsageToStr(StackAllocator<U8>& alloc, AccelerationStructureUsageBit usage);

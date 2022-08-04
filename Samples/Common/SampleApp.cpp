@@ -33,7 +33,7 @@ Error SampleApp::init(int argc, char** argv, CString sampleName)
 #endif
 
 	ANKI_CHECK(m_config.setFromCommandLineArguments(argc - 1, argv + 1));
-	ANKI_CHECK(App::init(&m_config, argv[0], allocAligned, nullptr));
+	ANKI_CHECK(App::init(&m_config, allocAligned, nullptr));
 
 	ANKI_CHECK(sampleExtraInit());
 
@@ -109,9 +109,8 @@ Error SampleApp::userMainLoop(Bool& quit, Second elapsedTime)
 
 	if(in.getKey(KeyCode::L) == 1)
 	{
-		renderer.setCurrentDebugRenderTarget((renderer.getCurrentDebugRenderTarget() == "MotionVectorsHistoryLength")
-												 ? ""
-												 : "MotionVectorsHistoryLength");
+		renderer.setCurrentDebugRenderTarget(
+			(renderer.getCurrentDebugRenderTarget() == "LightShading") ? "" : "LightShading");
 	}
 
 	if(in.getKey(KeyCode::H) == 1)

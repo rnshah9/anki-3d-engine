@@ -95,8 +95,8 @@ void main()
 	const F32 lum1 = historyCol.r;
 	const F32 maxLum = boxMax.r;
 #else
-	const F32 lum0 = computeLuminance(invertibleTonemap(crntCol));
-	const F32 lum1 = computeLuminance(invertibleTonemap(historyCol));
+	const F32 lum0 = computeLuminance(reinhardTonemap(crntCol));
+	const F32 lum1 = computeLuminance(reinhardTonemap(historyCol));
 	const F32 maxLum = 1.0;
 #endif
 
@@ -110,8 +110,7 @@ void main()
 #if YCBCR
 	outColor = yCbCrToRgb(outColor);
 #endif
-
-	const Vec3 tonemapped = linearToSRgb(tonemap(outColor, u_exposureThreshold0));
+	const Vec3 tonemapped = linearToSRgb(tonemap(outColor, readExposureAndAverageLuminance().x));
 #if defined(ANKI_COMPUTE_SHADER)
 	imageStore(u_outImg, IVec2(gl_GlobalInvocationID.xy), Vec4(outColor, 0.0));
 	imageStore(u_tonemappedImg, IVec2(gl_GlobalInvocationID.xy), Vec4(tonemapped, 0.0));

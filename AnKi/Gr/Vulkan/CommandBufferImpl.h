@@ -58,7 +58,7 @@ public:
 
 	~CommandBufferImpl();
 
-	ANKI_USE_RESULT Error init(const CommandBufferInitInfo& init);
+	Error init(const CommandBufferInitInfo& init);
 
 	void setFence(MicroFencePtr& fence)
 	{
@@ -330,6 +330,12 @@ public:
 
 	void pushSecondLevelCommandBufferInternal(const CommandBufferPtr& cmdb);
 
+	// To enable using Anki's commandbuffers for external workloads
+	void beginRecordingExt()
+	{
+		commandCommon();
+	}
+
 	void endRecording();
 
 	void setTextureBarrierInternal(const TexturePtr& tex, TextureUsageBit prevUsage, TextureUsageBit nextUsage,
@@ -377,6 +383,14 @@ public:
 		m_microCmdb->pushObjectRef(buff);
 	}
 
+	void bindReadOnlyTextureBufferInternal(U32 set, U32 binding, const BufferPtr& buff, PtrSize offset, PtrSize range,
+										   Format fmt, U32 arrayIdx)
+	{
+		commandCommon();
+		m_dsetState[set].bindReadOnlyTextureBuffer(binding, arrayIdx, buff.get(), offset, range, fmt);
+		m_microCmdb->pushObjectRef(buff);
+	}
+
 	void copyBufferToTextureViewInternal(const BufferPtr& buff, PtrSize offset, PtrSize range,
 										 const TextureViewPtr& texView);
 
@@ -384,6 +398,11 @@ public:
 									PtrSize range);
 
 	void buildAccelerationStructureInternal(const AccelerationStructurePtr& as);
+
+	void upscaleInternal(const GrUpscalerPtr& upscaler, const TextureViewPtr& inColor,
+						 const TextureViewPtr& outUpscaledColor, const TextureViewPtr& motionVectors,
+						 const TextureViewPtr& depth, const TextureViewPtr& exposure, const Bool resetAccumulation,
+						 const Vec2& jitterOffset, const Vec2& motionVectorsScale);
 
 	void setPushConstantsInternal(const void* data, U32 dataSize);
 

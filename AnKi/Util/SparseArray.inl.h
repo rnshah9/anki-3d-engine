@@ -63,55 +63,58 @@ template<typename T, typename TIndex>
 template<typename TAlloc>
 TIndex SparseArray<T, TIndex>::insert(TAlloc& alloc, Index idx, Value& val)
 {
-start:
-	const Index desiredPos = mod(idx);
-	const Index endPos = mod(desiredPos + m_probeCount);
-	Index pos = desiredPos;
-
-	while(pos != endPos)
+	while(true)
 	{
-		Metadata& meta = m_metadata[pos];
-		Value& crntVal = m_elements[pos];
+		const Index desiredPos = mod(idx);
+		const Index endPos = mod(desiredPos + m_probeCount);
+		Index pos = desiredPos;
 
-		if(!meta.m_alive)
+		while(pos != endPos)
 		{
-			// Empty slot was found, construct in-place
+			Metadata& meta = m_metadata[pos];
+			Value& crntVal = m_elements[pos];
 
-			meta.m_alive = true;
-			meta.m_idx = idx;
-			alloc.construct(&crntVal, std::move(val));
+			if(!meta.m_alive)
+			{
+				// Empty slot was found, construct in-place
 
-			return 1;
+				meta.m_alive = true;
+				meta.m_idx = idx;
+				alloc.construct(&crntVal, std::move(val));
+
+				return 1;
+			}
+			else if(meta.m_idx == idx)
+			{
+				// Same index was found, replace
+
+				meta.m_idx = idx;
+				destroyElement(crntVal);
+				alloc.construct(&crntVal, std::move(val));
+
+				return 0;
+			}
+
+			// Do the robin-hood
+			const Index otherDesiredPos = mod(meta.m_idx);
+			if(distanceFromDesired(pos, otherDesiredPos) < distanceFromDesired(pos, desiredPos))
+			{
+				// Swap
+				std::swap(val, crntVal);
+				std::swap(idx, meta.m_idx);
+				break;
+			}
+
+			pos = mod(pos + 1u);
 		}
-		else if(meta.m_idx == idx)
+
+		if(pos == endPos)
 		{
-			// Same index was found, replace
-
-			meta.m_idx = idx;
-			destroyElement(crntVal);
-			alloc.construct(&crntVal, std::move(val));
-
-			return 0;
+			// Didn't found an empty place, need to grow and try again
+			grow(alloc);
 		}
-
-		// Do the robin-hood
-		const Index otherDesiredPos = mod(meta.m_idx);
-		if(distanceFromDesired(pos, otherDesiredPos) < distanceFromDesired(pos, desiredPos))
-		{
-			// Swap
-			std::swap(val, crntVal);
-			std::swap(idx, meta.m_idx);
-			goto start;
-		}
-
-		pos = mod(pos + 1u);
 	}
 
-	// Didn't found an empty place, need to grow and try again
-	grow(alloc);
-	goto start;
-
-	ANKI_ASSERT(0);
 	return 0;
 }
 
@@ -137,8 +140,7 @@ void SparseArray<T, TIndex>::grow(TAlloc& alloc)
 	Value* const oldElements = m_elements;
 	Metadata* const oldMetadata = m_metadata;
 	const Index oldCapacity = m_capacity;
-	const Index oldElementCount = m_elementCount;
-	(void)oldElementCount;
+	[[maybe_unused]] const Index oldElementCount = m_elementCount;
 
 	m_capacity *= 2;
 	m_elements = static_cast<Value*>(alloc.getMemoryPool().allocate(m_capacity * sizeof(Value), alignof(Value)));
@@ -281,14 +283,12 @@ void SparseArray<T, TIndex>::validate() const
 	{
 		if(m_metadata[pos].m_alive)
 		{
-			const Index myDesiredPos = mod(m_metadata[pos].m_idx);
-			(void)myDesiredPos;
+			[[maybe_unused]] const Index myDesiredPos = mod(m_metadata[pos].m_idx);
 			ANKI_ASSERT(distanceFromDesired(pos, myDesiredPos) < m_probeCount);
 
 			if(prevPos != ~Index(0))
 			{
-				Index prevDesiredPos = mod(m_metadata[prevPos].m_idx);
-				(void)prevDesiredPos;
+				[[maybe_unused]] Index prevDesiredPos = mod(m_metadata[prevPos].m_idx);
 				ANKI_ASSERT(myDesiredPos >= prevDesiredPos);
 			}
 

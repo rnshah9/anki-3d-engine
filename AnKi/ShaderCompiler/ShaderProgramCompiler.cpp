@@ -168,7 +168,7 @@ static Bool spinDials(DynamicArrayAuto<U32>& dials, ConstWeakArray<ShaderProgram
 
 static Error compileSpirv(ConstWeakArray<MutatorValue> mutation, const ShaderProgramParser& parser,
 						  GenericMemoryPoolAllocator<U8>& tmpAlloc,
-						  Array<DynamicArrayAuto<U8>, U32(ShaderType::COUNT)>& spirv)
+						  Array<DynamicArrayAuto<U8>, U32(ShaderType::COUNT)>& spirv, StringAuto& errorLog)
 {
 	// Generate the source and the rest for the variant
 	ShaderProgramParserVariant parserVariant;
@@ -183,7 +183,8 @@ static Error compileSpirv(ConstWeakArray<MutatorValue> mutation, const ShaderPro
 		}
 
 		// Compile
-		ANKI_CHECK(compilerGlslToSpirv(parserVariant.getSource(shaderType), shaderType, tmpAlloc, spirv[shaderType]));
+		ANKI_CHECK(compilerGlslToSpirv(parserVariant.getSource(shaderType), shaderType, tmpAlloc, spirv[shaderType],
+									   errorLog));
 		ANKI_ASSERT(spirv[shaderType].getSize() > 0);
 	}
 
@@ -253,7 +254,8 @@ static void compileVariantAsync(ConstWeakArray<MutatorValue> mutation, const Sha
 																	   {tmpAlloc},
 																	   {tmpAlloc},
 																	   {tmpAlloc}}};
-		const Error err = compileSpirv(ctx.m_mutation, *ctx.m_parser, tmpAlloc, spirvs);
+		StringAuto errorLog(tmpAlloc);
+		const Error err = compileSpirv(ctx.m_mutation, *ctx.m_parser, tmpAlloc, spirvs, errorLog);
 
 		if(!err)
 		{
@@ -304,7 +306,12 @@ static void compileVariantAsync(ConstWeakArray<MutatorValue> mutation, const Sha
 		}
 		else
 		{
-			ctx.m_err->store(err._getCode());
+			// Inform about the error and print only one error message. Ignore other messages
+			const Error prevErr = ctx.m_err->exchange(err._getCode());
+			if(!prevErr)
+			{
+				ANKI_SHADER_COMPILER_LOGE("GLSL compilation failed:\n%s", errorLog.cstr());
+			}
 		}
 
 		// Cleanup
@@ -540,7 +547,7 @@ public:
 		return Error::NONE;
 	}
 
-	ANKI_USE_RESULT Bool findStruct(CString name, U32& idx) const
+	[[nodiscard]] Bool findStruct(CString name, U32& idx) const
 	{
 		idx = MAX_U32;
 
@@ -591,9 +598,8 @@ public:
 	{
 		// Refresh the structIdx because we have a different global mapping
 		U32 realStructIdx;
-		const Bool structFound = findStruct(structName, realStructIdx);
+		[[maybe_unused]] const Bool structFound = findStruct(structName, realStructIdx);
 		ANKI_ASSERT(structFound);
-		(void)structFound;
 		const ShaderProgramBinaryStruct& s = m_structs[realStructIdx];
 		DynamicArrayAuto<ShaderProgramBinaryStructMember>& members = m_structMembers[realStructIdx];
 
@@ -627,9 +633,8 @@ public:
 			{
 				// Type is a struct, find the right index
 
-				const Bool structFound = findStruct(typeStructName, member.m_structIndex);
+				[[maybe_unused]] const Bool structFound = findStruct(typeStructName, member.m_structIndex);
 				ANKI_ASSERT(structFound);
-				(void)structFound;
 			}
 		}
 
@@ -643,7 +648,7 @@ public:
 		return Error::NONE;
 	}
 
-	static ANKI_USE_RESULT Error setName(CString in, Array<char, MAX_SHADER_BINARY_NAME_LENGTH + 1>& out)
+	static Error setName(CString in, Array<char, MAX_SHADER_BINARY_NAME_LENGTH + 1>& out)
 	{
 		if(in.getLength() + 1 > MAX_SHADER_BINARY_NAME_LENGTH)
 		{
@@ -662,8 +667,7 @@ public:
 		return Error::NONE;
 	}
 
-	static ANKI_USE_RESULT Error findBlock(CString name, U32 set, U32 binding,
-										   ConstWeakArray<ShaderProgramBinaryBlock> arr, U32& idx)
+	static Error findBlock(CString name, U32 set, U32 binding, ConstWeakArray<ShaderProgramBinaryBlock> arr, U32& idx)
 	{
 		idx = MAX_U32;
 

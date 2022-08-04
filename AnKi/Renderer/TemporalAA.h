@@ -20,18 +20,19 @@ public:
 
 	~TemporalAA();
 
-	ANKI_USE_RESULT Error init();
+	Error init();
 
 	void populateRenderGraph(RenderingContext& ctx);
+
+	/// Result is tonemaped.
+	RenderTargetHandle getTonemappedRt() const
+	{
+		return m_runCtx.m_tonemappedRt;
+	}
 
 	RenderTargetHandle getHdrRt() const
 	{
 		return m_runCtx.m_renderRt;
-	}
-
-	RenderTargetHandle getTonemappedRt() const
-	{
-		return m_runCtx.m_tonemappedRt;
 	}
 
 private:
@@ -52,7 +53,7 @@ private:
 		RenderTargetHandle m_tonemappedRt;
 	} m_runCtx;
 
-	ANKI_USE_RESULT Error initInternal();
+	Error initInternal();
 };
 /// @}
 

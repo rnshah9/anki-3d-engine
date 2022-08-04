@@ -15,6 +15,9 @@
 
 namespace anki {
 
+// DLSS related
+#define ANKI_VK_NVX_BINARY_IMPORT "VK_NVX_binary_import"
+
 GrManagerImpl::~GrManagerImpl()
 {
 	ANKI_VK_LOGI("Destroying Vulkan backend");
@@ -119,7 +122,7 @@ Error GrManagerImpl::initInternal(const GrManagerInitInfo& init)
 	m_config = init.m_config;
 	ANKI_ASSERT(m_config);
 
-	ANKI_CHECK(initInstance(init));
+	ANKI_CHECK(initInstance());
 	ANKI_CHECK(initSurface(init));
 	ANKI_CHECK(initDevice(init));
 
@@ -192,7 +195,8 @@ Error GrManagerImpl::initInternal(const GrManagerInitInfo& init)
 		}
 	}
 
-	ANKI_CHECK(m_descrFactory.init(getAllocator(), m_device, MAX_BINDLESS_TEXTURES, MAX_BINDLESS_IMAGES));
+	ANKI_CHECK(
+		m_descrFactory.init(getAllocator(), m_device, MAX_BINDLESS_TEXTURES, MAX_BINDLESS_READONLY_TEXTURE_BUFFERS));
 	m_pplineLayoutFactory.init(getAllocator(), m_device);
 
 	m_frameGarbageCollector.init(this);
@@ -200,7 +204,7 @@ Error GrManagerImpl::initInternal(const GrManagerInitInfo& init)
 	return Error::NONE;
 }
 
-Error GrManagerImpl::initInstance(const GrManagerInitInfo& init)
+Error GrManagerImpl::initInstance()
 {
 	// Init VOLK
 	//
@@ -543,6 +547,9 @@ Error GrManagerImpl::initInstance(const GrManagerInitInfo& init)
 	}
 #endif
 
+	// DLSS checks
+	m_capabilities.m_dlss = ANKI_DLSS && m_capabilities.m_gpuVendor == GpuVendor::NVIDIA;
+
 	return Error::NONE;
 }
 
@@ -752,6 +759,21 @@ Error GrManagerImpl::initDevice(const GrManagerInitInfo& init)
 			else if(extensionName == VK_EXT_TEXTURE_COMPRESSION_ASTC_HDR_EXTENSION_NAME)
 			{
 				m_extensions |= VulkanExtensions::EXT_TEXTURE_COMPRESSION_ASTC_HDR;
+				extensionsToEnable[extensionsToEnableCount++] = extensionName.cstr();
+			}
+			else if(m_capabilities.m_dlss && extensionName == VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME)
+			{
+				m_extensions |= VulkanExtensions::KHR_PUSH_DESCRIPTOR;
+				extensionsToEnable[extensionsToEnableCount++] = extensionName.cstr();
+			}
+			else if(m_capabilities.m_dlss && extensionName == ANKI_VK_NVX_BINARY_IMPORT)
+			{
+				m_extensions |= VulkanExtensions::NVX_BINARY_IMPORT;
+				extensionsToEnable[extensionsToEnableCount++] = extensionName.cstr();
+			}
+			else if(m_capabilities.m_dlss && extensionName == VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME)
+			{
+				m_extensions |= VulkanExtensions::NVX_IMAGE_VIEW_HANDLE;
 				extensionsToEnable[extensionsToEnableCount++] = extensionName.cstr();
 			}
 		}
@@ -1435,7 +1457,7 @@ void GrManagerImpl::trySetVulkanHandleName(CString name, VkObjectType type, U64 
 }
 
 VkBool32 GrManagerImpl::debugReportCallbackEXT(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-											   VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+											   [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageTypes,
 											   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 											   void* pUserData)
 {
@@ -1508,7 +1530,7 @@ Error GrManagerImpl::printPipelineShaderInfoInternal(VkPipeline ppline, CString 
 												   "stage 5 VGPR,stage 5 SGPR\n"));
 		}
 
-		ANKI_CHECK(m_shaderStatsFile.writeText("%s,0x%" PRIx64 ",", name.cstr(), hash));
+		ANKI_CHECK(m_shaderStatsFile.writeTextf("%s,0x%" PRIx64 ",", name.cstr(), hash));
 
 		StringAuto str(getAllocator());
 
@@ -1529,8 +1551,9 @@ Error GrManagerImpl::printPipelineShaderInfoInternal(VkPipeline ppline, CString 
 						   .sprintf("Stage %u: VGRPS %02u, SGRPS %02u ", U32(type), stats.resourceUsage.numUsedVgprs,
 									stats.resourceUsage.numUsedSgprs));
 
-			ANKI_CHECK(m_shaderStatsFile.writeText((type != ShaderType::LAST) ? "%u,%u," : "%u,%u\n",
-												   stats.resourceUsage.numUsedVgprs, stats.resourceUsage.numUsedSgprs));
+			ANKI_CHECK(m_shaderStatsFile.writeTextf((type != ShaderType::LAST) ? "%u,%u," : "%u,%u\n",
+													stats.resourceUsage.numUsedVgprs,
+													stats.resourceUsage.numUsedSgprs));
 		}
 
 		ANKI_VK_LOGI("Pipeline \"%s\" (0x%016" PRIx64 ") stats: %s", name.cstr(), hash, str.cstr());

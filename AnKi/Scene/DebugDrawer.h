@@ -30,7 +30,7 @@ void allocateAndPopulateDebugBox(StagingGpuMemoryPool& stagingGpuAllocator, Stag
 class DebugDrawer2
 {
 public:
-	ANKI_USE_RESULT Error init(ResourceManager* rsrcManager);
+	Error init(ResourceManager* rsrcManager);
 
 	Bool isInitialized() const
 	{
@@ -58,12 +58,12 @@ public:
 		drawLines(ConstWeakArray<Mat4>(&mvp, 1), color, lineSize, ditherFailedDepth, points, stagingGpuAllocator, cmdb);
 	}
 
-	void drawBillboardTextures(const Mat4& projMat, const Mat4& viewMat, ConstWeakArray<Vec3> positions,
+	void drawBillboardTextures(const Mat4& projMat, const Mat3x4& viewMat, ConstWeakArray<Vec3> positions,
 							   const Vec4& color, Bool ditherFailedDepth, TextureViewPtr tex, SamplerPtr sampler,
 							   Vec2 billboardSize, StagingGpuMemoryPool& stagingGpuAllocator,
 							   CommandBufferPtr& cmdb) const;
 
-	void drawBillboardTexture(const Mat4& projMat, const Mat4& viewMat, Vec3 position, const Vec4& color,
+	void drawBillboardTexture(const Mat4& projMat, const Mat3x4& viewMat, Vec3 position, const Vec4& color,
 							  Bool ditherFailedDepth, TextureViewPtr tex, SamplerPtr sampler, Vec2 billboardSize,
 							  StagingGpuMemoryPool& stagingGpuAllocator, CommandBufferPtr& cmdb) const
 	{

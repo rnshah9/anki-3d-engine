@@ -27,7 +27,7 @@ class ShaderInitInfo;
 class ShaderProgramInitInfo;
 class CommandBufferInitInfo;
 class AccelerationStructureInitInfo;
-
+class GrUpscalerInitInfo;
 /// @addtogroup graphics
 /// @{
 
@@ -44,7 +44,7 @@ constexpr U32 MAX_BINDINGS_PER_DESCRIPTOR_SET = 32;
 constexpr U32 MAX_FRAMES_IN_FLIGHT = 3; ///< Triple buffering.
 constexpr U32 MAX_GR_OBJECT_NAME_LENGTH = 31;
 constexpr U32 MAX_BINDLESS_TEXTURES = 512;
-constexpr U32 MAX_BINDLESS_IMAGES = 64;
+constexpr U32 MAX_BINDLESS_READONLY_TEXTURE_BUFFERS = 512;
 
 /// The number of commands in a command buffer that make it a small batch command buffer.
 constexpr U32 COMMAND_BUFFER_SMALL_BATCH_MAX_COMMANDS = 100;
@@ -73,6 +73,7 @@ ANKI_GR_CLASS(ShaderProgram)
 ANKI_GR_CLASS(Fence)
 ANKI_GR_CLASS(RenderGraph)
 ANKI_GR_CLASS(AccelerationStructure)
+ANKI_GR_CLASS(GrUpscaler)
 
 #undef ANKI_GR_CLASS
 
@@ -182,6 +183,9 @@ public:
 
 	/// Supports or not 24bit, 48bit or 96bit texture formats.
 	Bool m_unalignedBbpTextureFormats = false;
+
+	/// DLSS.
+	Bool m_dlss = false;
 };
 ANKI_END_PACKED_STRUCT
 

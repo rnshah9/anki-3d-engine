@@ -11,7 +11,7 @@
 #include <random>
 #include <algorithm>
 
-namespace anki {
+using namespace anki;
 
 namespace {
 
@@ -52,7 +52,7 @@ public:
 	static constexpr PtrSize MAX_SIZE = 128_MB;
 	PtrSize m_crntSize = 0;
 
-	ANKI_USE_RESULT Error allocateChunk(U32 classIdx, Chunk*& chunk)
+	Error allocateChunk(U32 classIdx, Chunk*& chunk)
 	{
 		PtrSize size = m_classes[classIdx].m_chunkSize;
 
@@ -216,5 +216,3 @@ ANKI_TEST(Util, ClassAllocatorBuilder)
 		allocations.clear();
 	}
 }
-
-} // end namespace anki

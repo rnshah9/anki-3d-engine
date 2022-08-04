@@ -215,40 +215,40 @@ public:
 	}
 
 	/// Convert to F16.
-	ANKI_USE_RESULT Error toNumber(F16& out) const;
+	Error toNumber(F16& out) const;
 
 	/// Convert to F32.
-	ANKI_USE_RESULT Error toNumber(F32& out) const;
+	Error toNumber(F32& out) const;
 
 	/// Convert to F64.
-	ANKI_USE_RESULT Error toNumber(F64& out) const;
+	Error toNumber(F64& out) const;
 
 	/// Convert to I8.
-	ANKI_USE_RESULT Error toNumber(I8& out) const;
+	Error toNumber(I8& out) const;
 
 	/// Convert to U8.
-	ANKI_USE_RESULT Error toNumber(U8& out) const;
+	Error toNumber(U8& out) const;
 
 	/// Convert to I16.
-	ANKI_USE_RESULT Error toNumber(I16& out) const;
+	Error toNumber(I16& out) const;
 
 	/// Convert to U16.
-	ANKI_USE_RESULT Error toNumber(U16& out) const;
+	Error toNumber(U16& out) const;
 
 	/// Convert to I32.
-	ANKI_USE_RESULT Error toNumber(I32& out) const;
+	Error toNumber(I32& out) const;
 
 	/// Convert to U32.
-	ANKI_USE_RESULT Error toNumber(U32& out) const;
+	Error toNumber(U32& out) const;
 
 	/// Convert to I64.
-	ANKI_USE_RESULT Error toNumber(I64& out) const;
+	Error toNumber(I64& out) const;
 
 	/// Convert to U64.
-	ANKI_USE_RESULT Error toNumber(U64& out) const;
+	Error toNumber(U64& out) const;
 
 	/// Convert to Bool.
-	ANKI_USE_RESULT Error toNumber(Bool& out) const;
+	Error toNumber(Bool& out) const;
 
 	/// Compute the hash.
 	U64 computeHash() const
@@ -451,7 +451,8 @@ public:
 	}
 
 	/// Create formated string.
-	String& sprintf(Allocator alloc, CString fmt, ...);
+	ANKI_CHECK_FORMAT(2, 3)
+	String& sprintf(Allocator alloc, const Char* fmt, ...);
 
 	/// Destroy the string.
 	void destroy(Allocator alloc)
@@ -546,73 +547,73 @@ public:
 	void toString(Allocator alloc, TNumber number);
 
 	/// Convert to F16.
-	ANKI_USE_RESULT Error toNumber(F16& out) const
+	Error toNumber(F16& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to F32.
-	ANKI_USE_RESULT Error toNumber(F32& out) const
+	Error toNumber(F32& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to F64.
-	ANKI_USE_RESULT Error toNumber(F64& out) const
+	Error toNumber(F64& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to I8.
-	ANKI_USE_RESULT Error toNumber(I8& out) const
+	Error toNumber(I8& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to U8.
-	ANKI_USE_RESULT Error toNumber(U8& out) const
+	Error toNumber(U8& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to I16.
-	ANKI_USE_RESULT Error toNumber(I16& out) const
+	Error toNumber(I16& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to U16.
-	ANKI_USE_RESULT Error toNumber(U16& out) const
+	Error toNumber(U16& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to I32.
-	ANKI_USE_RESULT Error toNumber(I32& out) const
+	Error toNumber(I32& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to U32.
-	ANKI_USE_RESULT Error toNumber(U32& out) const
+	Error toNumber(U32& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to I64.
-	ANKI_USE_RESULT Error toNumber(I64& out) const
+	Error toNumber(I64& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to U64.
-	ANKI_USE_RESULT Error toNumber(U64& out) const
+	Error toNumber(U64& out) const
 	{
 		return toCString().toNumber(out);
 	}
 
 	/// Convert to Bool.
-	ANKI_USE_RESULT Error toNumber(Bool& out) const
+	Error toNumber(Bool& out) const
 	{
 		return toCString().toNumber(out);
 	}
@@ -646,6 +647,9 @@ public:
 			c = Char(tolower(c));
 		});
 	}
+
+	/// Internal don't use it.
+	ANKI_INTERNAL void sprintf(Allocator& alloc, const Char* fmt, va_list& args);
 
 protected:
 	DynamicArray<Char, PtrSize> m_data;
@@ -810,12 +814,8 @@ public:
 	}
 
 	/// Create formated string.
-	template<typename... TArgs>
-	StringAuto& sprintf(CString fmt, TArgs... args)
-	{
-		Base::sprintf(m_alloc, fmt, args...);
-		return *this;
-	}
+	ANKI_CHECK_FORMAT(1, 2)
+	StringAuto& sprintf(const Char* fmt, ...);
 
 	/// Convert a number to a string.
 	template<typename TNumber>

@@ -23,6 +23,7 @@
 #define ANKI_TESTS ${ANKI_TESTS}
 #define ANKI_ENABLE_TRACE ${_ANKI_ENABLE_TRACE}
 #define ANKI_SOURCE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+#define ANKI_DLSS ${_ANKI_DLSS_ENABLED}
 
 // Compiler
 #if defined(__clang__)
@@ -167,7 +168,6 @@
 #	define ANKI_LIKELY(x) __builtin_expect(!!(x), 1)
 #	define ANKI_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #	define ANKI_RESTRICT __restrict
-#	define ANKI_USE_RESULT __attribute__((warn_unused_result))
 #	define ANKI_FORCE_INLINE __attribute__((always_inline))
 #	define ANKI_DONT_INLINE __attribute__((noinline))
 #	define ANKI_UNUSED __attribute__((__unused__))
@@ -181,7 +181,6 @@
 #	define ANKI_LIKELY(x) (x)
 #	define ANKI_UNLIKELY(x) (x)
 #	define ANKI_RESTRICT
-#	define ANKI_USE_RESULT
 #	define ANKI_FORCE_INLINE
 #	define ANKI_DONT_INLINE
 #	define ANKI_UNUSED

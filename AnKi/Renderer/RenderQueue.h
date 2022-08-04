@@ -19,8 +19,8 @@ namespace anki {
 class RenderingMatrices
 {
 public:
-	Mat4 m_cameraTransform;
-	Mat4 m_viewMatrix;
+	Mat3x4 m_cameraTransform;
+	Mat3x4 m_viewMatrix;
 	Mat4 m_projectionMatrix;
 	Mat4 m_viewProjectionMatrix;
 	Mat4 m_previousViewProjectionMatrix;
@@ -179,12 +179,12 @@ public:
 	{
 	}
 
-	ANKI_USE_RESULT Bool isEnabled() const
+	[[nodiscard]] Bool isEnabled() const
 	{
 		return m_uuid != 0;
 	}
 
-	ANKI_USE_RESULT Bool hasShadow() const
+	[[nodiscard]] Bool hasShadow() const
 	{
 		return isEnabled() && m_shadowCascadeCount > 0;
 	}

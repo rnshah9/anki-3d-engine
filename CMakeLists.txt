@@ -63,18 +63,31 @@ else()
 	message(FATAL_ERROR "Unknown system")
 endif()
 
-if(${CMAKE_C_COMPILER_ID} MATCHES "GNU" OR ${CMAKE_C_COMPILER_ID} MATCHES "Clang")
+# Indentify compiler
+set(GCC FALSE)
+set(CLANG FALSE)
+set(CLANG_WINDOWS FALSE)
+
+if(${CMAKE_C_COMPILER_ID} MATCHES "GNU")
 	set(GCC TRUE)
-else()
-	set(GCC FALSE)
+	message("++ Compiler identified as GCC")
 endif()
 
 if(${CMAKE_C_COMPILER_ID} MATCHES "Clang")
+	message("++ Compiler identified as Clang")
 	set(CLANG TRUE)
-else()
-	set(CLANG FALSE)
+	if(WINDOWS)
+		# It's clang for windows
+		message("++ Compiler identified as Clang for Windows")
+		set(CLANG_WINDOWS TRUE)
+	endif()
 endif()
 
+if(MSVC)
+	message("++ Compiler identified as MSVC")
+endif()
+
+# Identify the target system
 set(X86 FALSE)
 set(ARM FALSE)
 if(GCC OR CLANG)
@@ -82,10 +95,10 @@ if(GCC OR CLANG)
 
 	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch" OR ${target_arch} MATCHES "aarch")
 		set(ARM TRUE)
-	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86")
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86.*" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "AMD64.*")
 		set(X86 TRUE)
 	else()
-		message(FATAL_ERROR "Couldn't find the target architecture from: ${target_arch}")
+		message(FATAL_ERROR "Couldn't find the target architecture from: ${target_arch} or ${CMAKE_SYSTEM_PROCESSOR}")
 	endif()
 elseif(MSVC)
 	set(X86 TRUE)
@@ -127,6 +140,7 @@ option(ANKI_ADDRESS_SANITIZER "Enable address sanitizer (-fsanitize=address)" OF
 option(ANKI_HEADLESS "Build a headless application" OFF)
 option(ANKI_SHADER_FULL_PRECISION "Build shaders with full precision" OFF)
 set(ANKI_OVERRIDE_SHADER_COMPILER "" CACHE FILEPATH "Set the ShaderCompiler to be used to compile all shaders")
+option(ANKI_DLSS "Integrate DLSS if supported" OFF)
 
 # Take a wild guess on the windowing system
 if(ANKI_HEADLESS)
@@ -159,54 +173,56 @@ if(NOT DEFINED CMAKE_BUILD_TYPE)
 endif()
 
 ################################################################################
-# Compiler & linker flags                                                      #
+# Common compiler & linker flags                                               #
 ################################################################################
 
 if(MINGW)
-	set(COMPILER_FLAGS "${COMPILER_FLAGS} -mconsole ")
+	add_compile_options(-mconsole)
 endif()
 
-add_definitions(-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
-add_definitions(-DANKI_BUILD)
-
-# ImGUI
-add_definitions(-DIMGUI_USER_CONFIG=<AnKi/Ui/ImGuiConfig.h>)
+add_definitions(
+	-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	-DANKI_BUILD
+	-DIMGUI_USER_CONFIG=<AnKi/Ui/ImGuiConfig.h>)
 
 if(NOT MSVC)
 	# When building AnKi define this special flag
-	add_definitions("-fPIC")
+	if(NOT CLANG_WINDOWS)
+		add_compile_options(-fPIC)
+	endif()
 
-	add_definitions("-fno-exceptions")
+	add_compile_options(-fno-exceptions)
 
-	if(GCC AND NOT CLANG)
-		add_definitions("-static-libstdc++")
+	if(GCC)
+		add_compile_options(-static-libstdc++)
 	endif()
 
 	if(X86)
-		add_definitions("-msse4")
+		add_compile_options(-msse4)
 	endif()
 
 	if(ANKI_LTO)
-		add_definitions("-flto ")
+		add_compile_options(-flto)
 		set(LINKER_FLAGS "${LINKER_FLAGS} -flto ")
 	endif()
 
 	if(ANKI_STRIP)
 		set(LINKER_FLAGS "${LINKER_FLAGS} -s ")
-		add_definitions("-s")
+		add_compile_options(-s)
 	endif()
 
 	if(ANKI_ADDRESS_SANITIZER)
-		add_definitions("-fsanitize=address ")
+		add_compile_options(-fsanitize=address)
 	endif()
 
 	if(${CMAKE_BUILD_TYPE} STREQUAL "Release")
-		add_definitions("-O3 -DNDEBUG")
+		add_compile_options(-O3)
+		add_definitions(-DNDEBUG)
 	elseif(${CMAKE_BUILD_TYPE} STREQUAL "RelWithDebInfo")
-		add_definitions("-O3 -g3 -fno-omit-frame-pointer")
+		add_compile_options(-O3 -g3 -fno-omit-frame-pointer)
 		set(LINKER_FLAGS "${LINKER_FLAGS} -rdynamic ") # For backtrace()
 	elseif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-		add_definitions("-O0 -g3")
+		add_compile_options(-O0 -g3)
 		set(LINKER_FLAGS "${LINKER_FLAGS} -rdynamic ") # For backtrace()
 	else()
 		message(FATAL_ERROR "Wrong CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
@@ -216,14 +232,18 @@ if(NOT MSVC)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINKER_FLAGS}")
 else()
 	#ProcessorCount(PC)
-	add_compile_options("/MP")
+	add_compile_options(/MP)
 
 	if(${CMAKE_BUILD_TYPE} STREQUAL "Release" OR ${CMAKE_BUILD_TYPE} STREQUAL "RelWithDebInfo")
-		#add_definitions("/Ox")
+		#add_definitions(/Ox)
 	endif()
 
+	add_definitions(
+		-D_CRT_SECURE_NO_WARNINGS=1 # Disable some string function warnings
+		-D_ITERATOR_DEBUG_LEVEL=0)
+
 	# Full paths in compiler diagnostics else you can't click on visual studio have it open the file+line
-	add_compile_options("/FC")
+	add_compile_options(/FC)
 endif()
 
 # Use LLD or gold linker
@@ -246,7 +266,7 @@ endif()
 ################################################################################
 # Thirdparty                                                                   #
 ################################################################################
-set(ANKI_EXTERN_SUB_DIRS TinyXml2 Lua ZLib Bullet ImGui MeshOptimizer SprivCross)
+set(ANKI_EXTERN_SUB_DIRS TinyXml2 Lua ZLib Bullet ImGui MeshOptimizer SpirvCross)
 
 # Bullet config
 option(BUILD_BULLET2_DEMOS OFF)
@@ -254,6 +274,7 @@ option(BUILD_BULLET3 OFF)
 option(BUILD_CPU_DEMOS OFF)
 option(BUILD_OPENGL3_DEMOS OFF)
 option(BUILD_EXTRAS OFF)
+option(BUILD_UNIT_TESTS OFF)
 
 if((LINUX OR MACOS OR WINDOWS) AND GL)
 	set(ANKI_EXTERN_SUB_DIRS ${ANKI_EXTERN_SUB_DIRS} GLEW)
@@ -275,6 +296,13 @@ message("++ Configuring glslang")
 add_subdirectory(ThirdParty/Glslang)
 message("++ End configuring glslang")
 
+if(LINUX OR WINDOWS)
+	message("++ Configuring reproc")
+	set(REPROC++ OFF)
+	add_subdirectory(ThirdParty/Reproc)
+	message("++ End configuring reproc")
+endif()
+
 foreach(TMP ${ANKI_EXTERN_SUB_DIRS})
 	add_subdirectory(ThirdParty/${TMP})
 endforeach()
@@ -284,6 +312,14 @@ if(ANDROID)
 	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate")
 
 	add_subdirectory(ThirdParty/HwcPipe)
+endif()
+
+# DLSS
+if(ANKI_DLSS)
+	add_subdirectory(ThirdParty/DlssSdk)
+	set(_ANKI_DLSS_ENABLED 1)
+else()
+	set(_ANKI_DLSS_ENABLED 0)
 endif()
 
 ################################################################################
@@ -395,17 +431,43 @@ if(LINUX)
 	endif()
 endif()
 
+if(ANKI_DLSS)
+	set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} AnKiNgx)
+endif()
+
 # AnKi compiler flags (Mainly warnings)
 if(NOT MSVC)
-	add_definitions("-pedantic -Wno-unknown-warning-option -Wall -W -Wextra -Wstrict-aliasing -Wwrite-strings -Wunused "
-		"-Wno-unused-parameter -Wundef -Wno-ignored-attributes -Wno-implicit-fallthrough -Wunused-result "
-		"-Wconversion -Wno-sign-conversion -Wno-keyword-macro -Wno-string-conversion -Wno-class-memaccess "
-		"-Wunused-variable")
+	add_compile_options(
+		-pedantic
+		-Wno-unknown-warning-option
+		-Wall
+		-W
+		-Wextra
+		-Wstrict-aliasing
+		-Wwrite-strings
+		-Wunused
+		-Wundef
+		-Wno-ignored-attributes
+		-Wno-implicit-fallthrough
+		-Wunused-result
+		-Wconversion
+		-Wno-sign-conversion
+		-Wno-keyword-macro
+		-Wno-string-conversion
+		-Wno-class-memaccess
+		-Wunused-variable)
 
 	set(CMAKE_CXX_STANDARD 17)
 else()
-	#add_definitions("/wd4996 /wd4244 /wd4262 /wd4267 /wd26495 /wd26439")
-	add_compile_definitions("_CRT_SECURE_NO_WARNINGS=1") # Disable some string function warnings
+	string(REPLACE "/W3" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+
+	add_compile_options(
+		/std:c++17
+		/W4
+		/wd4324
+		/wd4456
+		/wd4127
+		/wd4457)
 endif()
 
 # Add AnKi sub libraries

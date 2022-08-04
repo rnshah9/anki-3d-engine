@@ -9,6 +9,7 @@
 #include <AnKi/Gr/Framebuffer.h>
 #include <AnKi/Util/Functions.h>
 #include <AnKi/Util/WeakArray.h>
+#include <AnKi/Math.h>
 
 namespace anki {
 
@@ -279,8 +280,8 @@ public:
 	///              of the buffer.
 	/// @param fmt The format of the buffer.
 	/// @param arrayIdx The array index if the binding is an array.
-	void bindTextureBuffer(U32 set, U32 binding, const BufferPtr& buff, PtrSize offset, PtrSize range, Format fmt,
-						   U32 arrayIdx = 0);
+	void bindReadOnlyTextureBuffer(U32 set, U32 binding, const BufferPtr& buff, PtrSize offset, PtrSize range,
+								   Format fmt, U32 arrayIdx = 0);
 
 	/// Bind an acceleration structure.
 	/// @param set The set to bind to.
@@ -409,6 +410,22 @@ public:
 
 	/// Build the acceleration structure.
 	void buildAccelerationStructure(const AccelerationStructurePtr& as);
+
+	/// Do upscaling by an external upscaler
+	/// @param[in] upscaler the upscaler to use for upscaling
+	/// @param[in] inColor Source LowRes RenderTarget.
+	/// @param[out] outUpscaledColor Destination HighRes RenderTarget
+	/// @param[in] motionVectors Motion Vectors
+	/// @param[in] depth Depth attachment
+	/// @param[in] exposure 1x1 Texture containing exposure
+	/// @param[in] resetAccumulation Whether to clean or not any temporal history
+	/// @param[in] jitterOffset Jittering offset that was applied during the generation of sourceTexture
+	/// @param[in] motionVectorsScale Any scale factor that might need to be applied to the motionVectorsTexture (i.e UV
+	///                               space to Pixel space conversion)
+	void upscale(const GrUpscalerPtr& upscaler, const TextureViewPtr& inColor, const TextureViewPtr& outUpscaledColor,
+				 const TextureViewPtr& motionVectors, const TextureViewPtr& depth, const TextureViewPtr& exposure,
+				 const Bool resetAccumulation, const Vec2& jitterOffset, const Vec2& motionVectorsScale);
+
 	/// @}
 
 	/// @name Sync
@@ -467,7 +484,7 @@ protected:
 
 private:
 	/// Allocate and initialize a new instance.
-	static ANKI_USE_RESULT CommandBuffer* newInstance(GrManager* manager, const CommandBufferInitInfo& init);
+	[[nodiscard]] static CommandBuffer* newInstance(GrManager* manager, const CommandBufferInitInfo& init);
 };
 /// @}
 

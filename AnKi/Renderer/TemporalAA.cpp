@@ -44,7 +44,7 @@ Error TemporalAA::initInternal()
 
 	{
 		ShaderProgramResourceVariantInitInfo variantInitInfo(m_prog);
-		variantInitInfo.addConstant("VARIANCE_CLIPPING_GAMMA", 2.7f);
+		variantInitInfo.addConstant("VARIANCE_CLIPPING_GAMMA", 2.7f); // Variance clipping paper proposes 1.0
 		variantInitInfo.addConstant("BLEND_FACTOR", 1.0f / 16.0f);
 		variantInitInfo.addMutation("VARIANCE_CLIPPING", 1);
 		variantInitInfo.addMutation("YCBCR", 0);
@@ -153,7 +153,7 @@ void TemporalAA::populateRenderGraph(RenderingContext& ctx)
 		rgraphCtx.bindColorTexture(0, 2, m_r->getLightShading().getRt());
 		rgraphCtx.bindColorTexture(0, 3, m_runCtx.m_historyRt);
 		rgraphCtx.bindColorTexture(0, 4, m_r->getMotionVectors().getMotionVectorsRt());
-		rgraphCtx.bindUniformBuffer(0, 5, m_r->getTonemapping().getAverageLuminanceBuffer());
+		rgraphCtx.bindImage(0, 5, m_r->getTonemapping().getRt());
 
 		if(getConfig().getRPreferCompute())
 		{

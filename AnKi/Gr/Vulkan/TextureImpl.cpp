@@ -42,33 +42,21 @@ static Bool isAstcSrgbFormat(const VkFormat format)
 	}
 }
 
-U32 MicroImageView::getOrCreateBindlessIndex(VkImageLayout layout, GrManagerImpl& gr) const
+U32 MicroImageView::getOrCreateBindlessIndex(GrManagerImpl& gr) const
 {
-	ANKI_ASSERT(layout == VK_IMAGE_LAYOUT_GENERAL || layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	const U32 arrayIdx = (layout == VK_IMAGE_LAYOUT_GENERAL) ? 1 : 0;
-
-	LockGuard<SpinLock> lock(m_lock);
+	LockGuard<SpinLock> lock(m_bindlessIndexLock);
 
 	U32 outIdx;
-	if(m_bindlessIndices[arrayIdx] != MAX_U32)
+	if(m_bindlessIndex != MAX_U32)
 	{
-		outIdx = m_bindlessIndices[arrayIdx];
+		outIdx = m_bindlessIndex;
 	}
 	else
 	{
 		// Needs binding to the bindless descriptor set
 
-		if(layout == VK_IMAGE_LAYOUT_GENERAL)
-		{
-			outIdx = gr.getDescriptorSetFactory().bindBindlessImage(m_handle);
-		}
-		else
-		{
-			outIdx = gr.getDescriptorSetFactory().bindBindlessTexture(m_handle, layout);
-		}
-
-		m_bindlessIndices[arrayIdx] = outIdx;
+		outIdx = gr.getDescriptorSetFactory().bindBindlessTexture(m_handle, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_bindlessIndex = outIdx;
 	}
 
 	return outIdx;
@@ -90,16 +78,10 @@ TextureImpl::~TextureImpl()
 		garbage->m_viewHandles.emplaceBack(getAllocator(), it.m_handle);
 		it.m_handle = VK_NULL_HANDLE;
 
-		if(it.m_bindlessIndices[0] != MAX_U32)
+		if(it.m_bindlessIndex != MAX_U32)
 		{
-			garbage->m_bindlessIndices.emplaceBack(getAllocator(), it.m_bindlessIndices[0]);
-			it.m_bindlessIndices[0] = MAX_U32;
-		}
-
-		if(it.m_bindlessIndices[1] != MAX_U32)
-		{
-			garbage->m_bindlessIndices.emplaceBack(getAllocator(), it.m_bindlessIndices[1]);
-			it.m_bindlessIndices[1] = MAX_U32;
+			garbage->m_bindlessIndices.emplaceBack(getAllocator(), it.m_bindlessIndex);
+			it.m_bindlessIndex = MAX_U32;
 		}
 	}
 
@@ -110,16 +92,10 @@ TextureImpl::~TextureImpl()
 		garbage->m_viewHandles.emplaceBack(getAllocator(), m_singleSurfaceImageView.m_handle);
 		m_singleSurfaceImageView.m_handle = VK_NULL_HANDLE;
 
-		if(m_singleSurfaceImageView.m_bindlessIndices[0] != MAX_U32)
+		if(m_singleSurfaceImageView.m_bindlessIndex != MAX_U32)
 		{
-			garbage->m_bindlessIndices.emplaceBack(getAllocator(), m_singleSurfaceImageView.m_bindlessIndices[0]);
-			m_singleSurfaceImageView.m_bindlessIndices[0] = MAX_U32;
-		}
-
-		if(m_singleSurfaceImageView.m_bindlessIndices[1] != MAX_U32)
-		{
-			garbage->m_bindlessIndices.emplaceBack(getAllocator(), m_singleSurfaceImageView.m_bindlessIndices[1]);
-			m_singleSurfaceImageView.m_bindlessIndices[1] = MAX_U32;
+			garbage->m_bindlessIndices.emplaceBack(getAllocator(), m_singleSurfaceImageView.m_bindlessIndex);
+			m_singleSurfaceImageView.m_bindlessIndex = MAX_U32;
 		}
 	}
 
@@ -301,6 +277,7 @@ Error TextureImpl::initImage(const TextureInitInfo& init)
 	ci.samples = VK_SAMPLE_COUNT_1_BIT;
 	ci.tiling = VK_IMAGE_TILING_OPTIMAL;
 	ci.usage = convertTextureUsage(init.m_usage, init.m_format);
+	m_vkUsageFlags = ci.usage;
 	ci.queueFamilyIndexCount = getGrManagerImpl().getQueueFamilies().getSize();
 	ci.pQueueFamilyIndices = &getGrManagerImpl().getQueueFamilies()[0];
 	ci.sharingMode = (ci.queueFamilyIndexCount > 1) ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
@@ -344,9 +321,8 @@ Error TextureImpl::initImage(const TextureInitInfo& init)
 	// Allocate
 	if(!dedicatedRequirements.prefersDedicatedAllocation)
 	{
-		getGrManagerImpl().getGpuMemoryManager().allocateMemory(memIdx, requirements.memoryRequirements.size,
-																U32(requirements.memoryRequirements.alignment), false,
-																m_memHandle);
+		getGrManagerImpl().getGpuMemoryManager().allocateMemory(
+			memIdx, requirements.memoryRequirements.size, U32(requirements.memoryRequirements.alignment), m_memHandle);
 	}
 	else
 	{

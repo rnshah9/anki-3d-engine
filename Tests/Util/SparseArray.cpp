@@ -268,7 +268,8 @@ ANKI_TEST(Util, SparseArray)
 
 static I64 akAllocSize = 0;
 static I64 akMaxAllocSize = 0;
-static ANKI_DONT_INLINE void* allocAlignedAk(void* userData, void* ptr, PtrSize size, PtrSize alignment)
+static ANKI_DONT_INLINE void* allocAlignedAk([[maybe_unused]] void* userData, void* ptr, PtrSize size,
+											 [[maybe_unused]] PtrSize alignment)
 {
 	if(ptr == nullptr)
 	{
@@ -291,7 +292,8 @@ static ANKI_DONT_INLINE void* allocAlignedAk(void* userData, void* ptr, PtrSize 
 
 static I64 stlAllocSize = 0;
 static I64 stlMaxAllocSize = 0;
-static ANKI_DONT_INLINE void* allocAlignedStl(void* userData, void* ptr, PtrSize size, PtrSize alignment)
+static ANKI_DONT_INLINE void* allocAlignedStl([[maybe_unused]] void* userData, void* ptr, PtrSize size,
+											  [[maybe_unused]] PtrSize alignment)
 {
 	if(ptr == nullptr)
 	{
@@ -341,7 +343,7 @@ ANKI_TEST(Util, SparseArrayBench)
 			int v;
 			do
 			{
-				v = rand();
+				v = int(getRandom());
 			} while(tmpMap.find(v) != tmpMap.end() && v != 0);
 			tmpMap[v] = 1;
 
@@ -375,7 +377,7 @@ ANKI_TEST(Util, SparseArrayBench)
 	// Search
 	{
 		// Search in random order
-		std::random_shuffle(vals.begin(), vals.end());
+		randomShuffle(vals.begin(), vals.end());
 
 		int count = 0;
 
@@ -411,7 +413,7 @@ ANKI_TEST(Util, SparseArrayBench)
 	// Deletes
 	{
 		// Remove in random order
-		std::random_shuffle(vals.begin(), vals.end());
+		randomShuffle(vals.begin(), vals.end());
 
 		// Random delete AnKi
 		Second akTime = 0.0;

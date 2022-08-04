@@ -180,13 +180,16 @@ void Logger::defaultSystemMessageHandler(void*, const LoggerMessageInfo& info)
 			info.m_tid, endTerminalColor, terminalColor, info.m_msg, info.m_file, info.m_line, info.m_func,
 			endTerminalColor);
 #elif ANKI_OS_WINDOWS
-	WORD attribs = BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED;
+	WORD attribs = 0;
 	FILE* out = NULL;
 	switch(info.m_type)
 	{
 	case LoggerMessageType::NORMAL:
-	case LoggerMessageType::VERBOSE:
 		attribs |= FOREGROUND_GREEN;
+		out = stdout;
+		break;
+	case LoggerMessageType::VERBOSE:
+		attribs |= FOREGROUND_BLUE;
 		out = stdout;
 		break;
 	case LoggerMessageType::ERROR:
@@ -194,7 +197,7 @@ void Logger::defaultSystemMessageHandler(void*, const LoggerMessageInfo& info)
 		out = stderr;
 		break;
 	case LoggerMessageType::WARNING:
-		attribs |= FOREGROUND_RED;
+		attribs |= FOREGROUND_RED | FOREGROUND_GREEN;
 		out = stderr;
 		break;
 	case LoggerMessageType::FATAL:
@@ -284,13 +287,12 @@ void Logger::fileMessageHandler(void* pfile, const LoggerMessageInfo& info)
 {
 	File* file = reinterpret_cast<File*>(pfile);
 
-	Error err = file->writeText("[%s] %s (%s:%d %s)\n", MSG_TEXT[U(info.m_type)], info.m_msg, info.m_file, info.m_line,
-								info.m_func);
+	Error err = file->writeTextf("[%s] %s (%s:%d %s)\n", MSG_TEXT[U(info.m_type)], info.m_msg, info.m_file, info.m_line,
+								 info.m_func);
 
 	if(!err)
 	{
 		err = file->flush();
-		(void)err;
 	}
 }
 

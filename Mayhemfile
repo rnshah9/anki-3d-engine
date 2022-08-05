@@ -2,4 +2,4 @@ project: anki-3d-engine
 target: shaderdump
 
 cmds:
-  - cmd: /repo/build/Bin/ShaderDump @@
+  - cmd: /ShaderDump @@

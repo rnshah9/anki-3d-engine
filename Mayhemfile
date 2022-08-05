@@ -1,5 +1,5 @@
 project: anki-3d-engine
-target: ImageImporter
+target: imageimporter
 
 cmds:
-  - cmd: /ImageImporter @@ /dev/null
+  - cmd: repo/build/Bin/ShaderDump @@

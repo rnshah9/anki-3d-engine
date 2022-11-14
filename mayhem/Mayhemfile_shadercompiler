@@ -1,0 +1,6 @@
+project: anki-3d-engine
+target: shadercompiler
+
+cmds:
+  - cmd: /ShaderCompiler
+image: ghcr.io/rnshah9/playground:anki-3d-engine
